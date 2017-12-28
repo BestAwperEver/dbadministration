@@ -2,23 +2,32 @@ USE AdventureWorks2012;
 DROP PROCEDURE IF EXISTS backupDB;
 GO
 
-TRUNCATE TABLE backup_log;
+DROP TABLE IF EXISTS backup_log;
+CREATE TABLE backup_log
+	(
+	dbName nvarchar(128),	-- имя бд, для которой создан бэкап
+	isFull bit,				-- полный бэкап или дифференциальный
+	dtTm dateTime2(7),		-- отметка времени
+	filePath nvarchar(128),	-- путь к файлу с бэкапом
+	PRIMARY KEY(dbName, dtTm)
+	);
 GO
 
 CREATE PROCEDURE backupDB
-	@dbName nvarchar(128),
-	@full BIT
+	@dbName nvarchar(128),	-- имя бд, для которой создан бэкап
+	@full BIT				-- полный бэкап или дифференциальный
 AS
 BEGIN
-	DECLARE @dateTime DATETIME2(0) = SYSDATETIME();
+	-- текущая отметка времени
+	DECLARE @dateTime dateTime2(7) = SYSDATETIME();
 
 	DECLARE @fileName nvarchar(128) = 
-	
 	CONCAT('D:\Programs\Microsoft SQL Server\backups\',
-		@dbName,
-		REPLACE(@dateTime, ':', ' '),
+		@dbName,						-- имя бд
+		REPLACE(@dateTime, ':', ' '),	-- отметка времени
 		'.bak');
 
+	-- для каждого бэкапа -- отдельный файл, поэтому INIT не требуется
 	if @full = 1
 	BEGIN
 		BACKUP DATABASE @dbName
@@ -33,6 +42,7 @@ BEGIN
 		WITH DIFFERENTIAL;
 	END
 
+	-- запись в лог о созданном бэкапе
 	INSERT INTO backup_log VALUES
 		(@dbName, @full, @dateTime, @fileName);
 
@@ -48,4 +58,7 @@ GO
 
 USE AdventureWorks2012;
 EXEC backupDB @dbName = 'testdb', @full = 0;
+GO
+
+SELECT * FROM backup_log;
 GO
